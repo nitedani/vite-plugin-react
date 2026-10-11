@@ -818,6 +818,38 @@ function defineTest(f: Fixture) {
     ).toBe(true)
   })
 
+  test('client component css in streamed suspense boundary', async ({
+    page,
+  }) => {
+    // block scripts to check SSR html styles the client component before hydration
+    await page.route('**/*', (route) =>
+      route.request().resourceType() === 'script'
+        ? route.abort()
+        : route.continue(),
+    )
+    // warm up the server so that the boundary resolves after the shell is flushed
+    await page.goto(f.url())
+    await page.goto(f.url('./?test-suspense-client-css'))
+    await expect(page.locator('.test-suspense-client-css')).toHaveCSS(
+      'color',
+      'rgb(255, 165, 0)',
+    )
+  })
+
+  test('client component css in streamed suspense boundary hydration', async ({
+    page,
+  }) => {
+    // the css wrapper must not change useId between SSR and hydration
+    using _ = expectNoPageError(page)
+    await page.goto(f.url('./?test-suspense-client-css'))
+    const locator = page.locator('.test-suspense-client-css')
+    await waitForHydration(page, '.test-suspense-client-css')
+    await expect(locator).toHaveText(
+      `test-suspense-client-css: ${await locator.getAttribute('data-id')}`,
+    )
+    await expect(locator).toHaveCSS('color', 'rgb(255, 165, 0)')
+  })
+
   async function testCssBasic(page: Page) {
     await testCss(page)
     await expect(page.locator('.test-dep-css-in-server')).toHaveCSS(

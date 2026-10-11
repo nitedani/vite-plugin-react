@@ -1,9 +1,11 @@
+import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import assetsManifest from 'virtual:vite-rsc/assets-manifest'
 import * as clientReferences from 'virtual:vite-rsc/client-references'
 import { setRequireModule } from '../core/ssr'
 import type { ResolvedAssetDeps } from '../plugin'
 import { toCssVirtual, toReferenceValidationVirtual } from '../plugins/shared'
+import { withClientReferenceCss } from '../utils/client-css'
 
 export { createServerConsumerManifest } from '../core/ssr'
 
@@ -78,7 +80,19 @@ function initialize(): void {
 // preload/preinit during getter access since `load` is cached on production.
 // also notify `onClientReference` callback here since module export access is not memoized by React.
 function wrapResourceProxy(mod: any, id: string, deps: ResolvedAssetDeps) {
-  return new Proxy(mod, {
+  // unlike `preinit`, a rendered link also holds back a Suspense boundary that completes after the shell
+  const css = () =>
+    assetsManifest.cssLinkPrecedence !== false &&
+    deps.css.map((href) =>
+      React.createElement('link', {
+        key: href,
+        rel: 'stylesheet',
+        href,
+        crossOrigin: 'anonymous',
+        precedence: 'vite-rsc/client-reference',
+      }),
+    )
+  return new Proxy(withClientReferenceCss(id, mod, css), {
     get(target, p, receiver) {
       if (p in mod) {
         preloadDeps(deps)
@@ -105,13 +119,11 @@ function preloadDeps(deps: ResolvedAssetDeps) {
     ReactDOM.preloadModule(href, options)
   }
   for (const href of deps.css) {
-    ReactDOM.preinit(href, {
-      as: 'style',
-      crossOrigin: 'anonymous',
-      precedence:
-        assetsManifest.cssLinkPrecedence !== false
-          ? 'vite-rsc/client-reference'
-          : undefined,
-    })
+    if (assetsManifest.cssLinkPrecedence !== false) {
+      // a `preinit` here would stop the rendered link from holding back its Suspense boundary
+      ReactDOM.preload(href, { as: 'style', crossOrigin: 'anonymous' })
+    } else {
+      ReactDOM.preinit(href, { as: 'style', crossOrigin: 'anonymous' })
+    }
   }
 }

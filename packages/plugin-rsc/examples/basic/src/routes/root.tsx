@@ -57,6 +57,7 @@ import { TestCssClientNoSsr } from './style-client-no-ssr/server'
 import { TestStyleClient } from './style-client/client'
 import { TestStyleServer } from './style-server/server'
 import { TestStyleShared } from './style-shared/server'
+import { TestSuspenseClientCss } from './suspense-client-css/server'
 import { TestTailwind } from './tailwind'
 import { TestTemporaryReference } from './temporary-reference/client'
 import { TestTreeShakeServer } from './tree-shake/server'
@@ -103,6 +104,7 @@ export function Root(props: { url: URL }) {
         <TestServerError url={props.url} />
         <TestReplayConsoleLogs url={props.url} />
         <TestSuspense url={props.url} />
+        <TestSuspenseClientCss url={props.url} />
         <TestActionFromClient />
         <TestActionExportAll />
         <TestUseActionState />
